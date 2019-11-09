@@ -1,15 +1,18 @@
 // This is a generated file. Do not edit directly.
 
-module k8s.io/sample-controller
+module github.com/lilic/instrumently
 
 go 1.12
 
 require (
+	github.com/pkg/errors v0.8.1
+	github.com/prometheus/common v0.6.0
 	k8s.io/api v0.0.0-20191004120104-195af9ec3521
 	k8s.io/apimachinery v0.0.0-20191004115801-a2eda9f80ab8
 	k8s.io/client-go v0.0.0-20191004120905-f06fe3961ca9
 	k8s.io/code-generator v0.0.0-20191004115455-8e001e5d1894
 	k8s.io/klog v0.4.0
+	k8s.io/kube-state-metrics v1.8.0
 )
 
 replace (

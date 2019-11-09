@@ -18,23 +18,73 @@ package main
 
 import (
 	"flag"
+	"fmt"
+	"os"
 	"time"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog"
-	// Uncomment the following line to load the gcp plugin (only required to authenticate against GKE clusters).
-	// _ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
-	clientset "k8s.io/sample-controller/pkg/generated/clientset/versioned"
-	informers "k8s.io/sample-controller/pkg/generated/informers/externalversions"
-	"k8s.io/sample-controller/pkg/signals"
+	"github.com/lilic/instrumently/metrics"
+	clientset "github.com/lilic/instrumently/pkg/generated/clientset/versioned"
+	informers "github.com/lilic/instrumently/pkg/generated/informers/externalversions"
+	"github.com/lilic/instrumently/pkg/signals"
+
+	"k8s.io/kube-state-metrics/pkg/metric"
+	ksm "k8s.io/kube-state-metrics/pkg/metric"
+	metricsstore "k8s.io/kube-state-metrics/pkg/metrics_store"
 )
 
 var (
 	masterURL  string
 	kubeconfig string
+
+	metricFamilies = []ksm.FamilyGenerator{
+		ksm.FamilyGenerator{
+			Name: "sample_controller_created",
+			Type: ksm.Gauge,
+			Help: "Unix creation timestamp for sample-controller",
+			GenerateFunc: func(obj interface{}) *ksm.Family {
+				cr := obj.(*unstructured.Unstructured)
+				ms := []*ksm.Metric{}
+				timestamp := cr.GetCreationTimestamp()
+				if !timestamp.IsZero() {
+					ms = append(ms, &ksm.Metric{
+						Value:       float64(timestamp.Unix()),
+						LabelKeys:   []string{"namespace", "name", "version"},
+						LabelValues: []string{cr.GetNamespace(), cr.GetName(), cr.GetAPIVersion()},
+					})
+				}
+				return &metric.Family{
+					Metrics: ms,
+				}
+			},
+		},
+		ksm.FamilyGenerator{
+			Name: "sample_controller_replicas",
+			Type: ksm.Gauge,
+			Help: "Number of replicas for sample-controller",
+			GenerateFunc: func(obj interface{}) *ksm.Family {
+				cr := obj.(*unstructured.Unstructured)
+				content := cr.UnstructuredContent()
+				spec := content["spec"].(map[string]interface{})
+				replicas := spec["replicas"].(int64)
+				return &metric.Family{
+					Metrics: []*ksm.Metric{
+						{
+							Value:       float64(replicas),
+							LabelKeys:   []string{"namespace", "name", "version"},
+							LabelValues: []string{cr.GetNamespace(), cr.GetName(), cr.GetAPIVersion()},
+						},
+					},
+				}
+			},
+		},
+	}
 )
 
 func main() {
@@ -71,12 +121,32 @@ func main() {
 	kubeInformerFactory.Start(stopCh)
 	exampleInformerFactory.Start(stopCh)
 
+	err = serveOperatorMetrics(cfg)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 	if err = controller.Run(2, stopCh); err != nil {
 		klog.Fatalf("Error running controller: %s", err.Error())
 	}
+
 }
 
 func init() {
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&masterURL, "master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
+}
+
+func serveOperatorMetrics(cfg *rest.Config) error {
+	// Create new Unstructured client.
+	client, err := metrics.NewClientForGVK(cfg, "samplecontroller.k8s.io/v1alpha1", "Foo")
+	if err != nil {
+		return err
+	}
+	// Generate collector in given namespace based on the Custom Resource API group/version, kind and the metrics.
+	gvkStores := metrics.NewMetricsStores(client, []string{"default"}, "samplecontroller.k8s.io/v1alpha1", "Foo", metricFamilies)
+	// Start serving metrics on port 8383.
+	go metrics.ServeMetrics([][]*metricsstore.MetricsStore{gvkStores}, "0.0.0.0", 8383)
+
+	return nil
 }

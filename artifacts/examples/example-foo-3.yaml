@@ -1,0 +1,7 @@
+apiVersion: samplecontroller.k8s.io/v1alpha1
+kind: Foo
+metadata:
+  name: kubecon-us-2019
+spec:
+  deploymentName: 3example-foo
+  replicas: 4

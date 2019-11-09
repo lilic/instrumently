@@ -1,0 +1,7 @@
+apiVersion: samplecontroller.k8s.io/v1alpha1
+kind: Foo
+metadata:
+  name: kubecon-us
+spec:
+  deploymentName: t4xample-foo
+  replicas: 5
