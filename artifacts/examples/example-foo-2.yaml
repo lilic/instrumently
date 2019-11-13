@@ -3,5 +3,5 @@ kind: Foo
 metadata:
   name: kubecon-us
 spec:
-  deploymentName: t4xample-foo
+  deploymentName: example-food-kubecon-2
   replicas: 5
