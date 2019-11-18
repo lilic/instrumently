@@ -1,14 +1,14 @@
 # instrumently
 
 This repository implements a simple controller/operator for watching Foo resources as
-defined with a CustomResourceDefinition (CRD) and is instrumented  with custom resource
+defined with a CustomResourceDefinition (CRD) and is instrumented with custom resource
 metrics.
 
 **Note:** go-get or vendor this package as `github.com/lilic/instrumently`.
 
 ## Where does it come from?
 
-instrumently is the instruemnted `sample-controller` which is synced from
+instrumently is the instrumented fork of the `sample-controller` which is synced from
 https://github.com/kubernetes/kubernetes/blob/master/staging/src/k8s.io/sample-controller.
 
 
@@ -20,7 +20,7 @@ In the main package of your operator (main.go) paste the following lines of code
 
 ```go
 func serveOperatorMetrics(cfg *rest.Config) error {
-	// Create new Unstructured client.``
+	// Create new Unstructured client.
 	client, err := metrics.NewClientForGVK(cfg, "samplecontroller.k8s.io/v1alpha1", "Foo")
 	if err != nil {
 		return err
